@@ -1,0 +1,238 @@
+<apex:page standardController="User" extensions="UserTrack" showHeader="false" standardStylesheets="false" sidebar="false" applyHtmlTag="false" applyBodyTag="false" docType="html-5.0">
+    
+    
+    <html xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" lang="en">
+        <head>
+            <meta charset="utf-8" />
+            <meta http-equiv="x-ua-compatible" content="ie=edge" />
+            <meta name="viewport" content="width=device-width, initial-scale=1" />
+            <!-- Import the Design System style sheet -->
+            <apex:slds />
+        </head>
+        
+        
+        <script type="text/javascript">
+        window.onload = function() {
+            document.getElementById("fulltable").style.display = "none";
+            document.getElementById("spinner").style.display = "block";
+            loaddata();
+            getAudit('userchange');
+        };
+        
+        function loaddata(){
+            Visualforce.remoting.Manager.invokeAction(
+                '{!$RemoteAction.UserTrack.getAuditdetails}',
+                '{!User.Id}','{!User.Name}',
+                function(result, event){
+                    console.log('status :'+event.status);
+                    if (event.status){
+                        showData(result);
+                    }
+                    else if(event.type == "exception" && event.message.includes('response size exceeded maximum')){
+                        console.log('$$$$$'+event.type);
+                        document.getElementById("spinner").style.display = "block";
+                        document.getElementById("spinnerText1").innerHTML = "Attempt 1 to get Audit details failed due to : "+event.message+", Intiating Attempt 2...";
+                        document.getElementById("spinnerText").innerHTML = "Loading....";
+                        Visualforce.remoting.Manager.invokeAction(
+                            '{!$RemoteAction.UserTrack.getLimitedAuditdetails}',
+                            '{!User.Id}','{!User.Name}',
+                            function(result, event){
+                                console.log('status :'+event.status);
+                                if (event.status){
+                                    document.getElementById("message").innerHTML = 'Displaying Limited Results due to high volume of changes to this User, for complete Audit data please extract via API';
+                                    showData(result);
+                                }
+                                else {
+                                    document.getElementById("spinner").style.display = "none";
+                                    document.getElementById("message").innerHTML = 'Error :'+event.message;
+                                }
+                            },{escape: true}
+                        ); 
+                    }else {
+                        document.getElementById("spinner").style.display = "none";
+                        document.getElementById("message").innerHTML = 'Error : '+event.message;
+                    }
+                },{escape: true}
+            ); 
+        }    
+        
+        function getAudit(tablename){
+            if(tablename =='userchange'){
+                              
+                document.getElementById("userchange").className = "slds-button slds-button_brand";
+                document.getElementById("changesdone").className = "slds-button slds-button_neutral";              
+                
+                document.getElementById("changesdonetable").style.display = "none";
+                document.getElementById("userchangetable").style.display = "block";
+                
+            }
+            else if (tablename =='changesdone'){
+                
+                document.getElementById("changesdone").className = "slds-button slds-button_brand";
+                document.getElementById("userchange").className = "slds-button slds-button_neutral";
+                
+                document.getElementById("changesdonetable").style.display = "block";
+                document.getElementById("userchangetable").style.display = "none";
+            }
+            
+        }      
+        
+        function showData(result){
+            
+            if(result.lUserChanges.length==0){
+                document.getElementById("swapbuttons").style.display = "none";
+            }    
+            var userchange='';
+            if(result.lUserRecordChange.length>0){
+                for(var i=0;i<result.lUserRecordChange.length;i++){
+                    
+                    userchange+="<tr class=\"slds-hint-parent\">"+       
+                        "<td data-label=\"Date\">"+
+                        "<div class=\"slds-truncate\" title=\"Date\">"+(new Date(result.lUserRecordChange[i].CreatedDate)).toLocaleString()+"</div>"+
+                        "</td>"+
+                        "<td data-label=\"User\">"+
+                        "<div class=\"slds-truncate\" title=\"User\">"+result.lUserRecordChange[i].CreatedBy.Name+"</div>"+
+                        "</td>"+
+                        "<td data-label=\"Action\">"+
+                        "<div class=\"slds-truncate\" title=\"Action\">"+result.lUserRecordChange[i].Display+"</div>"+
+                        "</td>"+                            
+                        "</tr>";
+                }     
+            }    
+            else {
+                userchange = "<tr><td colspan = \"3\"><div class=\"slds-align_absolute-center\">No changes to this User</div></td></tr>";
+            }
+            var changesdone='';   
+            if(result.lUserChanges.length>0){
+                for(var i=0;i<result.lUserChanges.length;i++){
+                    
+                    changesdone+="<tr class=\"slds-hint-parent\">"+       
+                        "<td data-label=\"Date\">"+
+                        "<div class=\"slds-truncate\" title=\"Date\">"+(new Date(result.lUserChanges[i].CreatedDate)).toLocaleString()+"</div>"+
+                        "</td>"+
+                        "<td data-label=\"User\">"+
+                        "<div class=\"slds-truncate\" title=\"User\">"+result.lUserChanges[i].Section+"</div>"+
+                        "</td>"+
+                        "<td data-label=\"Action\">"+
+                        "<div class=\"slds-truncate\" title=\"Action\">"+result.lUserChanges[i].Display+"</div>"+
+                        "</td>"+                            
+                        "</tr>";
+                } 
+            }    
+            document.getElementById("spinner").style.display = "none";
+            document.getElementById("fulltable").style.display = "block";
+            
+            document.getElementById('userchangetab').innerHTML=userchange;
+            document.getElementById('changesdonetab').innerHTML=changesdone;
+        }
+        
+        </script>
+        
+        <body>
+            
+            <div class="slds-scope">
+                <div class="slds-text-align--center slds-p-around_xx-small" id="message">
+                    
+                    
+                </div>
+                <div id="spinner" >
+                    
+                    <div class="slds-spinner_container">   
+                        
+                        <div id="spinnerText1" class="slds-text-align--center slds-m-top_x-small">
+                        </div>
+                        
+                        <div id="spinnerText" class="slds-text-heading_large slds-align_absolute-center slds-m-top_xx-small">Loading....</div>
+                        
+                        <div role="status" class="slds-spinner slds-spinner_large slds-spinner_brand">
+                            <span class="slds-assistive-text">Loading..</span>
+                            <div class="slds-spinner__dot-a"></div>
+                            <div class="slds-spinner__dot-b"></div>
+                        </div>
+                        <span class="slds-icon_container slds-icon-doctype-xml" title="Description of icon when needed">
+                            <svg class="slds-icon" aria-hidden="true">
+                                <use xlink:href="/assets/icons/doctype-sprite/svg/symbols.svg#xml"></use>
+                            </svg>
+                            <span class="slds-assistive-text">Description of icon when needed</span>
+                        </span>
+                    </div>
+                </div>
+                
+                
+                
+                
+                
+                <div id="fulltable" style="display:none">
+                                        
+                    <div id="swapbuttons" class="slds-float--right">
+                        <ul class="slds-button-group-list">
+                            <li>
+                                <button id="userchange" onclick="getAudit('userchange')">Changes to {!User.Name}</button>
+                            </li>
+                            <li>
+                                <button id="changesdone" onclick="getAudit('changesdone')">Changes by {!User.Name}</button>
+                            </li>
+                            <li>
+                            </li>
+                        </ul>
+                    </div>   
+                    
+                    <div id="userchangetable">
+                        
+                        <table class="slds-table slds-table_cell-buffer slds-table_bordered">
+                            <thead>
+                                <tr class="slds-line-height_reset">
+                                    
+                                    <th class="" scope="col">
+                                        <div class="slds-truncate" title="Date">Date</div>
+                                    </th>
+                                    <th class="" scope="col">
+                                        <div class="slds-truncate" title="User">User</div>
+                                    </th>
+                                    <th class="" scope="col">
+                                        <div class="slds-truncate" title="Action">Action</div>
+                                    </th>
+                                    
+                                </tr>
+                            </thead>
+                            <tbody id="userchangetab" >
+                                
+                                
+                            </tbody>
+                            
+                        </table>  
+                    </div>
+                    
+                    <div id="changesdonetable">
+                        
+                        <table class="slds-table slds-table_cell-buffer slds-table_bordered">
+                            <thead>
+                                <tr class="slds-line-height_reset">
+                                    
+                                    <th class="" scope="col">
+                                        <div class="slds-truncate" title="Date">Date</div>
+                                    </th>
+                                    <th class="" scope="col">
+                                        <div class="slds-truncate" title="Type of change">Type of change</div>
+                                    </th>
+                                    <th class="" scope="col">
+                                        <div class="slds-truncate" title="Action">Action</div>
+                                    </th>
+                                    
+                                </tr>
+                            </thead>
+                            
+                            <tbody id="changesdonetab">
+                                
+                            </tbody>
+                        </table>  
+                    </div>
+                </div>
+                
+            </div>
+        </body>  
+        
+        
+    </html>
+    
+</apex:page>
